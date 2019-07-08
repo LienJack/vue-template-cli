@@ -1,6 +1,9 @@
 const path = require("path")
 const fs = require("fs")
 const webpack = require('webpack')
+const chalk = require("chalk")
+const { execSync }= require("child_process")
+const os = require('os')
 // const CleanWebpackPlugin = require("clean-webpack-plugin")
 const VueLoaderPlugin = require('vue-loader/lib/plugin');
 const MiniCssExtractPlugin = require("mini-css-extract-plugin") 
@@ -8,7 +11,6 @@ const HtmlWebpackPlugin = require('html-webpack-plugin');
 const AddAssetHtmlPlugin =require("add-asset-html-webpack-plugin")
 const CopyWebpackPlugin = require("copy-webpack-plugin")
 const HappyPack = require('happypack')
-const os = require('os')
 const happyThreadPool = HappyPack.ThreadPool({size: os.cpus().length}); // 指定线程池个数
 const rootDir = path.resolve(__dirname, '../'); // 根目录
 const resolve = dir => path.resolve(rootDir, dir)
@@ -48,6 +50,15 @@ function styleLoaders (lang) {
     return [MiniCssExtractPlugin.loader].concat(loaders)
   } else {
     return ['vue-style-loader'].concat(loaders) // vue-style-loader热跟新
+  }
+}
+
+const checkAndDownLoadDll = () => {
+  const dllPath = resolve('dll')
+  const mainfest = resolve('dll/manifest.json')
+  if (!(fs.existsSync(dllPath) && fs.existsSync(manifest))) {
+    console.log(chalk.black.bgYellow.bold('The DLL files are missing, we will build "npm build-dll".Please wait'));
+    execSync('npm build-dll');
   }
 }
 
