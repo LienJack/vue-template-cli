@@ -1,20 +1,17 @@
-const path = require("path")
-const fs = require("fs")
 const webpack = require('webpack')
-const chalk = require("chalk")
-const { execSync }= require("child_process")
 const os = require('os')
-// const CleanWebpackPlugin = require("clean-webpack-plugin")
+const { CleanWebpackPlugin } = require('clean-webpack-plugin');
 const VueLoaderPlugin = require('vue-loader/lib/plugin');
 const MiniCssExtractPlugin = require("mini-css-extract-plugin") 
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const AddAssetHtmlPlugin =require("add-asset-html-webpack-plugin")
 const CopyWebpackPlugin = require("copy-webpack-plugin")
+const ProgressBarPlugin = require('progress-bar-webpack-plugin');
 const HappyPack = require('happypack')
 const happyThreadPool = HappyPack.ThreadPool({size: os.cpus().length}); // 指定线程池个数
-const rootDir = path.resolve(__dirname, '../'); // 根目录
-const resolve = dir => path.resolve(rootDir, dir)
-const env = process.env.NODE_ENV;
+const { NODE_ENV } = require('./common/const')
+const { resolvePath, getEnv } = require('./common/utils')
+const ENV = require('../config/env.js')
 /**
  * css的load处理
  * @param {String} lang less，scss
@@ -28,7 +25,7 @@ function styleLoaders (lang) {
       loader: 'postcss-loader',
       options: {
         config: {
-          path: resolve('postcss.config.js')
+          path: resolvePath('postcss.config.js')
         }
       }
     }
@@ -46,58 +43,67 @@ function styleLoaders (lang) {
       loader: 'less-loader',
     })
   }
-  if (env === 'production') {
+  if (NODE_ENV  === 'production') {
     return [MiniCssExtractPlugin.loader].concat(loaders)
   } else {
     return ['vue-style-loader'].concat(loaders) // vue-style-loader热跟新
   }
 }
 
-const checkAndDownLoadDll = () => {
-  const dllPath = resolve('dll')
-  const mainfest = resolve('dll/manifest.json')
-  if (!(fs.existsSync(dllPath) && fs.existsSync(manifest))) {
-    console.log(chalk.black.bgYellow.bold('The DLL files are missing, we will build "npm build-dll".Please wait'));
-    execSync('npm build-dll');
-  }
-}
-
-
 module.exports = {
   entry: {
-    app: ["@babel/polyfill",resolve('src/index.js')] // 入口
+    app: [resolvePath('src/index.js')] // 入口
   },
   output: {
-    path: resolve('dist'), // 出口路径
+    // path: resolve('dist'), // 出口路径
     filename: '[name].[hash:10].js', // 输出文件名
     chunkFilename: "[id].[hash:10].js", // 公共代码
   },
   resolve: {
     extensions: ['.js', '.vue'], // 扩展名
     alias: {
-      '@': resolve('src'),
+      '@': resolvePath('src'),
       vue$: 'vue/dist/vue.esm.js'
-    }
+    },
+    modules: [resolvePath('node_modules')]
   },
   plugins: [
+    // 清除之前打包的
+    new CleanWebpackPlugin({
+      cleanOnceBeforeBuildPatterns: ['**/*'],
+    }),
     new CopyWebpackPlugin(
       [
-        { from: resolve('src/static'), to: resolve('dist/static')}
+        { from: resolvePath('src/static'), to: resolvePath('dist/static')}
       ]
     ),
+       // 注入环境变量
+    new webpack.DefinePlugin({
+      'process.env': JSON.stringify(ENV[getEnv()])
+    }),
+    // 进度条
+    // new webpack.ProgressPlugin(),
+    new ProgressBarPlugin(),
     new webpack.DllReferencePlugin({
-      manifest: resolve('dll/manifest.json'), // 引入的目标清单
-      name: "dll", // dll的名称
+      manifest: resolvePath('dll/vue.manifest.json'), // 引入的目标清单
+      name: "vue", // dll的名称
+      sourceType: "var"
+    }),
+    new webpack.DllReferencePlugin({
+      manifest: resolvePath('dll/ui.manifest.json'), // 引入的目标清单
+      name: "ui", // dll的名称
+      sourceType: "var"
+    }),
+    new webpack.DllReferencePlugin({
+      manifest: resolvePath('dll/vendor.manifest.json'), // 引入的目标清单
+      name: "vendor", // dll的名称
       sourceType: "var"
     }),
     new VueLoaderPlugin(),
-    // 环境
-    new webpack.DefinePlugin({
-      "process.env.NODE_ENV" : JSON.stringify(process.env.NODE_ENV)
-    }),
     new HappyPack({
       id: 'babel',
       loaders: ['babel-loader?cacheDirectory'],
+      // loaders: ['babel-loader'],
       threadPool: happyThreadPool,
       verbose: true,
     }),
@@ -106,17 +112,34 @@ module.exports = {
       filename: `[name].css?[hash]`,
       chunkFilename: `[id].css?[hash]`
     }),
-    // dll 引入
     new HtmlWebpackPlugin({
-      template: resolve('src/index.html'),
+      template: resolvePath('src/index.html'),
       filename: 'index.html',
       minify: { // 优化
         removeAttributeQuotes: true, // 删除双引号
         collapseWhitespace: true, // 变成一行
+        html5: true,
+        preserveLineBreaks:false,
+        minifyCSS:true,
+        minifyJS:true,
+        removeComments:false
       },
     }),
+    // dll 引入
     new AddAssetHtmlPlugin({
-      filepath: resolve('dll/dll.js'), // 需要添加的dll文件夹
+      filepath: resolvePath('dll/vue.js'), // 需要添加的vue全家桶文件夹
+      hash: true,
+      typeOfAsset: "js",
+      publicPath: './',
+    }),
+    new AddAssetHtmlPlugin({
+      filepath: resolvePath('dll/ui.js'), // 需要添加的UI框架文件夹
+      hash: true,
+      typeOfAsset: "js",
+      publicPath: './',
+    }),
+    new AddAssetHtmlPlugin({
+      filepath: resolvePath('dll/vendor.js'), // 需要添加的第三方文件夹
       hash: true,
       typeOfAsset: "js",
       publicPath: './',
@@ -124,30 +147,57 @@ module.exports = {
   ],
   module: {
     rules: [
-      { test: /\.vue$/, loader: 'vue-loader' },
+      { 
+        test: /\.vue$/, 
+        use:[
+          {
+            loader: 'vue-loader',
+            options: {
+              hotReload: true // 热重载
+            } 
+          },
+        ]
+      },
       { 
         test: /\.js$/,
         use: 'happypack/loader?id=babel',
         exclude: /node_modules/,
+        include:[resolvePath('src')]
       },
       { test: /\.css$/, use: styleLoaders() },
       { test: /\.scss$/, use: styleLoaders('scss') },
+      { test: /\.less$/, use: styleLoaders('less') },
       {
-        test: /\.(png|jpg|jpeg)$/,
-        include: resolve('src'),
+        test: /\.(png|jpe?g|gif|svg)(\?.*)?$/,
+        include: resolvePath('src'),
         use: [
             {
                 loader: 'url-loader',
-                options: { limit: 20240 },
+                options: { 
+                  limit: 20240,
+                  outputPath: 'images/' 
+                },
             },
-            { loader: 'img-loader' },
         ],
       },
+      {
+        test: /\.(mp4|webm|ogg|mp3|wav|flac|aac)(\?.*)?$/,
+        loader: 'url-loader',
+        options: {
+          limit: 10000,
+          name: 'media/[name]-[hash:5].min.[ext]',
+          publicPath: 'fonts/',
+          outputPath: 'fonts/'
+        }
+      },
+      {
+        test: /\.(woff2?|eot|ttf|otf)(\?.*)?$/,
+        loader: 'url-loader',
+        options: {
+          limit: 10000,
+          name: 'font/[name]-[hash:5].[ext]',
+        }
+      }
     ]
   },
-  optimization: {
-    splitChunks: {
-        chunks: "all",
-    },
-},
 }
