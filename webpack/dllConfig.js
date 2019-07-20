@@ -2,21 +2,20 @@ const path = require('path')
 const webpack = require('webpack')
 const HappyPack = require('happypack')
 const os = require('os')
-const { CleanWebpackPlugin } = require('clean-webpack-plugin');
 const ProgressBarPlugin = require('progress-bar-webpack-plugin');
+const { CleanWebpackPlugin } = require('clean-webpack-plugin');
 const happyThreadPool = HappyPack.ThreadPool({size: os.cpus().length}); // 指定线程池个数
 const dllDir = "../dll"
-module.exports = {
-  mode: 'production',
+const { DllConfig } = require('../config/index')
+const { isProduction } = require('./common/const')
+const configDll = {
+  // 当环境为production，DLL打包出来的vue是没有调试工具，所以要做环境判断
+  mode: isProduction ? 'production': 'development',
   entry: {
-    // dll: (Object.keys(dependencies || {})) // 这方法当然好，但是出现打包依赖关系错乱
-    // 有可能会出现打包依赖问题，所以dll需要分开
-    vue: ['vue', 'vue-router', 'vuex', 'axios'], // vue全家桶
-    ui: ['element-ui'],
-    vendor: ['loadsh'],
+    ...DllConfig
   },
   output: {
-    filename: '[name].js', // 产生的文件名
+    filename: '[name].dll.js', // 产生的文件名
     path: path.resolve(__dirname, dllDir), 
     library: '[name]', 
   },
@@ -28,6 +27,7 @@ module.exports = {
       }
     ],
   },
+  // 饿了么里面引用了vue，需要定义vue的引用包
   resolve: {
     alias: {
         vue$: 'vue/dist/vue.esm.js'
@@ -38,7 +38,7 @@ module.exports = {
       cleanOnceBeforeBuildPatterns: ['**/*'],
     }),
     new ProgressBarPlugin(),
-    new webpack.DllPlugin({ // name == library
+    new webpack.DllPlugin({ 
       name: '[name]',
       path:path.resolve(__dirname, dllDir, '[name].manifest.json') // 任务清单
     }),
@@ -50,3 +50,4 @@ module.exports = {
     }),
   ]
 }
+module.exports = configDll

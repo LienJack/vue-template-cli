@@ -1,6 +1,7 @@
 const { rootDir, PROCESS_ENV } = require('./const')
 const path = require('path')
 const  ENV = require('../../config/env.js')
+const  { isProduction } = require('./const')
 const log = require('./log')
 const spawn = require("child_process").spawn;
 const ora = require('ora')
@@ -28,9 +29,15 @@ function downLoadDll() {
   return new Promise((resolve, reject) => {
     const spinner = ora(`安装DLL中.....`);
     spinner.start()
-    execSync(`npm run build-dll`);
-    spinner.succeed()
-    resolve()
+    let command = isProduction ? 'npm run build-dll' : 'npm run build-dll-dev'
+    try {
+      execSync(command)
+      spinner.succeed()
+      resolve()
+    } catch (err) {
+      spinner.fail()
+      reject()
+    }
     // 为何监听不了close事件
     // const status = spawn("npm.cmd",["run","build-dll"]);
     // status.stdout.on("data", data => {

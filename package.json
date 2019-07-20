@@ -4,7 +4,8 @@
   "description": "vue模板",
   "main": "index.js",
   "scripts": {
-    "build-dll": "webpack --config webpack/dllConfig.js",
+    "build-dll-dev": "cross-env NODE_ENV=development PROCESS_ENV='LOCAL' webpack --config webpack/dllConfig.js",
+    "build-dll": "cross-env NODE_ENV=production PROCESS_ENV='PROD' webpack --config webpack/dllConfig.js",
     "dev": "cross-env PROCESS_ENV='LOCAL' NODE_ENV=development node ./webpack/devserver.js",
     "build-prod": "cross-env PROCESS_ENV='PROD' NODE_ENV=production node ./webpack/index.js",
     "build-dev": "cross-env PROCESS_ENV='DEV' NODE_ENV=production node ./webpack/index.js",
@@ -99,8 +100,7 @@
     "axios": "^0.19.0",
     "core-js": "^2.6.9",
     "element-ui": "^2.10.1",
-    "lib-flexible": "^0.3.2",
-    "loadsh": "^0.0.4",
+    "js-cookie": "^2.2.0",
     "vue": "^2.6.10",
     "vue-router": "^3.0.7",
     "vuex": "^3.1.1"

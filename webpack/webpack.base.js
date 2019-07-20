@@ -6,12 +6,14 @@ const MiniCssExtractPlugin = require("mini-css-extract-plugin")
 const HtmlWebpackPlugin = require('html-webpack-plugin');
 const AddAssetHtmlPlugin =require("add-asset-html-webpack-plugin")
 const CopyWebpackPlugin = require("copy-webpack-plugin")
-const ProgressBarPlugin = require('progress-bar-webpack-plugin');
+const FriendlyErrorsWebpackPlugin = require('friendly-errors-webpack-plugin')
 const HappyPack = require('happypack')
 const happyThreadPool = HappyPack.ThreadPool({size: os.cpus().length}); // 指定线程池个数
-const { NODE_ENV } = require('./common/const')
+const ProgressBarPlugin = require('progress-bar-webpack-plugin');
+const { isProduction } = require('./common/const')
 const { resolvePath, getEnv } = require('./common/utils')
 const ENV = require('../config/env.js')
+const { DllConfig, isDll, isShowProgress } = require('../config/index')
 /**
  * css的load处理
  * @param {String} lang less，scss
@@ -19,7 +21,7 @@ const ENV = require('../config/env.js')
 function styleLoaders (lang) {
   const loaders = [
     {
-      loader: 'css-loader'
+      loader: 'css-loader',
     },
     {
       loader: 'postcss-loader',
@@ -43,14 +45,25 @@ function styleLoaders (lang) {
       loader: 'less-loader',
     })
   }
-  if (NODE_ENV  === 'production') {
+  if (isProduction) {
     return [MiniCssExtractPlugin.loader].concat(loaders)
   } else {
     return ['vue-style-loader'].concat(loaders) // vue-style-loader热跟新
   }
 }
-
-module.exports = {
+const getDllReferenceArr = () => {
+  let arr = []
+  Object.keys(DllConfig).forEach(name => {
+    let plugin = new webpack.DllReferencePlugin({
+      manifest: resolvePath(`dll/${name}.manifest.json`),
+      name: name,
+      sourceType: "var"
+    })
+    arr.push(plugin)
+  })
+  return arr
+}
+const baseConfig = {
   entry: {
     app: [resolvePath('src/index.js')] // 入口
   },
@@ -82,35 +95,18 @@ module.exports = {
       'process.env': JSON.stringify(ENV[getEnv()])
     }),
     // 进度条
-    // new webpack.ProgressPlugin(),
-    new ProgressBarPlugin(),
-    new webpack.DllReferencePlugin({
-      manifest: resolvePath('dll/vue.manifest.json'), // 引入的目标清单
-      name: "vue", // dll的名称
-      sourceType: "var"
-    }),
-    new webpack.DllReferencePlugin({
-      manifest: resolvePath('dll/ui.manifest.json'), // 引入的目标清单
-      name: "ui", // dll的名称
-      sourceType: "var"
-    }),
-    new webpack.DllReferencePlugin({
-      manifest: resolvePath('dll/vendor.manifest.json'), // 引入的目标清单
-      name: "vendor", // dll的名称
-      sourceType: "var"
-    }),
+    isShowProgress ?  new webpack.ProgressPlugin() :  new ProgressBarPlugin(),
     new VueLoaderPlugin(),
+    new FriendlyErrorsWebpackPlugin(),
     new HappyPack({
       id: 'babel',
-      loaders: ['babel-loader?cacheDirectory'],
-      // loaders: ['babel-loader'],
+      loaders:[isProduction ? 'babel-loader?cacheDirectory' : 'babel-loader'],
       threadPool: happyThreadPool,
       verbose: true,
     }),
     // css抽离
     new MiniCssExtractPlugin({
-      filename: `[name].css?[hash]`,
-      chunkFilename: `[id].css?[hash]`
+      filename: `css/[name].css?[hash]`,
     }),
     new HtmlWebpackPlugin({
       template: resolvePath('src/index.html'),
@@ -124,25 +120,6 @@ module.exports = {
         minifyJS:true,
         removeComments:false
       },
-    }),
-    // dll 引入
-    new AddAssetHtmlPlugin({
-      filepath: resolvePath('dll/vue.js'), // 需要添加的vue全家桶文件夹
-      hash: true,
-      typeOfAsset: "js",
-      publicPath: './',
-    }),
-    new AddAssetHtmlPlugin({
-      filepath: resolvePath('dll/ui.js'), // 需要添加的UI框架文件夹
-      hash: true,
-      typeOfAsset: "js",
-      publicPath: './',
-    }),
-    new AddAssetHtmlPlugin({
-      filepath: resolvePath('dll/vendor.js'), // 需要添加的第三方文件夹
-      hash: true,
-      typeOfAsset: "js",
-      publicPath: './',
     }),
   ],
   module: {
@@ -175,7 +152,8 @@ module.exports = {
                 loader: 'url-loader',
                 options: { 
                   limit: 20240,
-                  outputPath: 'images/' 
+                  outputPath: 'images/',
+                  publicPath: '../'
                 },
             },
         ],
@@ -186,8 +164,6 @@ module.exports = {
         options: {
           limit: 10000,
           name: 'media/[name]-[hash:5].min.[ext]',
-          publicPath: 'fonts/',
-          outputPath: 'fonts/'
         }
       },
       {
@@ -196,8 +172,24 @@ module.exports = {
         options: {
           limit: 10000,
           name: 'font/[name]-[hash:5].[ext]',
+          publicPath: '../' // 处理文件文字引用
         }
       }
     ]
   },
 }
+// 是否开启Dll
+if (isDll) {
+  baseConfig.plugins.push(...getDllReferenceArr())
+  baseConfig.plugins.push(
+    new AddAssetHtmlPlugin({
+      filepath: resolvePath('dll/*.dll.js'), // 需要添加的第三方文件夹
+      hash: true,
+      typeOfAsset: "js",
+      outputPath:'./dll',
+      publicPath: './dll'
+    }),
+  )
+}
+
+module.exports = baseConfig
