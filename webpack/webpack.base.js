@@ -13,7 +13,7 @@ const ProgressBarPlugin = require('progress-bar-webpack-plugin');
 const { isProduction } = require('./common/const')
 const { resolvePath, getEnv } = require('./common/utils')
 const ENV = require('../config/env.js')
-const { DllConfig, isDll, isShowProgress } = require('../config/index')
+const { DllConfig, isDll, isShowProgress, isCache } = require('../config/index')
 /**
  * css的load处理
  * @param {String} lang less，scss
@@ -46,7 +46,9 @@ function styleLoaders (lang) {
     })
   }
   if (isProduction) {
-    return [MiniCssExtractPlugin.loader].concat(loaders)
+    loaders.unshift(MiniCssExtractPlugin.loader)
+    isCache && loaders.unshift('cache-loader')
+    return loaders
   } else {
     return ['vue-style-loader'].concat(loaders) // vue-style-loader热跟新
   }
@@ -65,7 +67,7 @@ const getDllReferenceArr = () => {
 }
 const baseConfig = {
   entry: {
-    app: [resolvePath('src/index.js')] // 入口
+    app: ['@babel/polyfill', resolvePath('src/index.js')] // 入口
   },
   output: {
     // path: resolve('dist'), // 出口路径
@@ -100,7 +102,7 @@ const baseConfig = {
     new FriendlyErrorsWebpackPlugin(),
     new HappyPack({
       id: 'babel',
-      loaders:[isProduction ? 'babel-loader?cacheDirectory' : 'babel-loader'],
+      loaders: isCache ? ['cache-loader', 'babel-loader?cacheDirectory'] : ['babel-loader'],
       threadPool: happyThreadPool,
       verbose: true,
     }),
@@ -135,6 +137,15 @@ const baseConfig = {
           },
         ]
       },
+      // {
+      //   enforce: 'pre',
+      //   test: /\.(js|vue)$/,
+      //   loader: 'eslint-loader',
+      //   exclude: /node_modules/,
+      //   options: {
+      //     formatter: require('eslint-friendly-formatter')
+      //   }
+      // },
       { 
         test: /\.js$/,
         use: 'happypack/loader?id=babel',
@@ -152,8 +163,8 @@ const baseConfig = {
                 loader: 'url-loader',
                 options: { 
                   limit: 20240,
-                  outputPath: 'images/',
-                  publicPath: '../'
+                  name: 'images/[name]-[hash:5].[ext]',
+                  publicPath: '/'
                 },
             },
         ],
@@ -172,7 +183,7 @@ const baseConfig = {
         options: {
           limit: 10000,
           name: 'font/[name]-[hash:5].[ext]',
-          publicPath: '../' // 处理文件文字引用
+          publicPath: '/' // 处理文件文字引用
         }
       }
     ]

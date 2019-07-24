@@ -11,6 +11,10 @@ module.exports = merge(base, {
   mode: 'development',
   devtool: 'source-map',
   devServer: {
+    overlay: {
+      errors: true,
+      warnings: true
+    },
     contentBase: config.LOCAL.assetsRoot,
     port: config.LOCAL.port,
     host: config.LOCAL.host,

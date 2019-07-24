@@ -1,9 +1,12 @@
 import Vue from 'vue'
 import App from './App'
-import 'lib-flexible/flexible'
-import './style/main.css'
+import router from './router'
+import store from './store'
+import './plugins'
+import './style'
+
 new Vue({
-  el: '#app',
-  components: { App },
-  template: '<App/>'
-})
+  router,
+  store,
+  render: h => h(App)
+}).$mount('#app')

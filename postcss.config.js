@@ -9,9 +9,5 @@ module.exports = {
     autoprefixer(), // 兼容性CSS的自动补全
     postcssPresetEnv(), //postcssPresetEnv可以让你写CSS4的语言
     postcssImport({ addDependencyTo: webpack }), // 在@import css文件的时候让webpack监听并编译
-    // pxtorem({
-    //   rootValue: 37.5,
-    //   propList: ['*']
-    // })
   ]
 }

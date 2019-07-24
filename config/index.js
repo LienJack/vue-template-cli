@@ -12,7 +12,7 @@ const common = {
 module.exports = {
   // wepback配置
   isDll: true, // 是否开启Dll
-  isBabelCache: true, // 是否开启缓存加速
+  isCache: true, // 是否开启缓存加速
   isShowProgress: false, // 是否开启打包过程
   isShowAnalyzer: false, // 是否开启打包分析
   DllConfig:{  // Dll 配置，全部把依赖打包DLL会容易出问题
