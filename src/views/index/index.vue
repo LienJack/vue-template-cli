@@ -7,7 +7,7 @@
 export default {
   data () {
     return {
-      msg: 'Hello,welcome to use 61tpl'
+      msg: 'Hello,welcome to use alice-vue-template'
     }
   }
 }
