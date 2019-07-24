@@ -1,0 +1,3 @@
+<% if (!(mobile && weixin)) { %>
+src/utils/wxconfig.js
+<% } %>
